@@ -8,25 +8,27 @@ This is an **intentionally legacy** J2EE application designed for testing with [
 
 This application intentionally includes the following violations that Konveyor should detect:
 
-### 1. EJB 2.x Usage (Deprecated)
+### 1. EJB Anti-Patterns (Manual JNDI Lookups)
 **Files:**
-- `src/main/java/com/boatfuel/ejb/FuelUpServiceHome.java` - EJB 2.x Home interface
-- `src/main/java/com/boatfuel/ejb/FuelUpServiceRemote.java` - EJB 2.x Remote interface
-- `src/main/java/com/boatfuel/ejb/FuelUpServiceBean.java` - SessionBean implementation
-- `src/main/java/com/boatfuel/ejb/UserSessionBean.java` - Stateful session bean
+- `src/main/java/com/boatfuel/ejb/FuelUpService.java` - @Local interface
+- `src/main/java/com/boatfuel/ejb/FuelUpServiceBean.java` - @Stateless bean
+- `src/main/java/com/boatfuel/ejb/FuelUpServiceHome.java` - EJB 2.x Home interface (legacy)
+- `src/main/java/com/boatfuel/ejb/FuelUpServiceRemote.java` - EJB 2.x Remote interface (legacy)
+- `src/main/java/com/boatfuel/servlet/FuelUpServlet.java` - Manual JNDI lookup
+- `src/main/webapp/WEB-INF/ejb-jar.xml` - EJB 2.x deployment descriptor
 
 **Violations:**
-- EJB 2.x Home/Remote interfaces with RMI
-- `javax.ejb.SessionBean` interface usage
-- `javax.ejb.SessionSynchronization` usage
-- Manual `ejbCreate()`, `ejbActivate()`, `ejbPassivate()` lifecycle methods
-- `PortableRemoteObject.narrow()` for EJB lookups
+- Manual JNDI lookup: `InitialContext().lookup("java:global/boat-fuel-tracker/FuelUpService")`
+- No dependency injection (@EJB not used)
+- EJB 2.x Home/Remote interfaces still present (unused but in codebase)
+- Old-style EJB deployment descriptors (ejb-jar.xml)
+- Manual EJB lookup in servlet init() method instead of @EJB injection
 
 **Modernization:**
-- Migrate to EJB 3.x with `@Stateless`/`@Stateful` annotations
 - Use `@EJB` dependency injection instead of JNDI lookups
-- Replace with CDI beans where appropriate
-- Remove Home/Remote interfaces
+- Replace with CDI beans (`@ApplicationScoped`, `@Inject`)
+- Remove Home/Remote interfaces and ejb-jar.xml
+- Remove manual InitialContext usage
 
 ### 2. Hibernate Proprietary Annotations
 **Files:**
@@ -109,20 +111,29 @@ This application intentionally includes the following violations that Konveyor s
 ### 6. Old Servlet API (2.5)
 **Files:**
 - `src/main/webapp/WEB-INF/web.xml` - Servlet 2.5 descriptor
-- `src/main/java/com/boatfuel/servlet/FuelUpServlet.java`
+- `src/main/java/com/boatfuel/servlet/FuelUpServlet.java` - Data servlet with HTML generation
+- `src/main/java/com/boatfuel/servlet/IndexServlet.java` - Template-based index servlet
+- `src/main/java/com/boatfuel/servlet/LogoutServlet.java` - Logout handler
+- `src/main/webapp/index-template.html` - HTML template
 
 **Violations:**
 - XML-based servlet configuration instead of annotations
 - `<servlet>` and `<servlet-mapping>` in web.xml
 - `extends HttpServlet` without `@WebServlet`
 - `<ejb-ref>` references in web.xml
-- HTML generation in servlet (no templates)
+- HTML generation in servlet using `PrintWriter` (FuelUpServlet)
+- Manual string replacement for templating (IndexServlet)
+- No proper template engine
+- Manual parameter extraction without validation framework
+- No REST API - returns HTML instead of JSON
 
 **Modernization:**
 - Use `@WebServlet` annotations
 - Remove web.xml servlet mappings
-- Use modern MVC framework (JAX-RS, Spring MVC)
-- Use templating (JSP, Thymeleaf, etc.) instead of PrintWriter
+- Use modern MVC framework (JAX-RS for REST, Spring MVC)
+- Use proper templating engine (Thymeleaf, Freemarker)
+- Implement REST API with JSON responses
+- Use Bean Validation for input validation
 
 ### 7. Deprecated Logging Framework
 **Files:**
@@ -156,36 +167,48 @@ This application intentionally includes the following violations that Konveyor s
 - Remove direct JDBC code
 - Use JPA repositories pattern
 
-### 9. Stateful Session Bean for HTTP Session
+### 9. Manual Session Management
 **Files:**
-- `src/main/java/com/boatfuel/ejb/UserSessionBean.java`
+- `src/main/java/com/boatfuel/servlet/FuelUpServlet.java` - Manual session getAttribute/setAttribute
+- `src/main/java/com/boatfuel/servlet/LogoutServlet.java` - Manual session invalidation
+- `src/main/webapp/WEB-INF/web.xml` - HTTP Basic Auth configuration
 
 **Violations:**
-- Using stateful EJB to store HTTP session data
-- EJB passivation/activation for web state
-- Not cloud-native (requires sticky sessions)
+- Manual `HttpSession` management in servlets
+- `session.getAttribute("userId")` / `session.setAttribute("userId", ...)`
+- Manual session invalidation in logout
+- HTTP Basic Auth (cannot properly logout - credentials cached by browser)
+- Default userId set in servlet when not in session
+- No stateless authentication (JWT, OAuth2)
 
 **Modernization:**
-- Use HTTP session directly
 - Use stateless authentication (JWT tokens)
-- Use external session store (Redis) if needed
-- Make application stateless for Kubernetes
+- Use modern security framework (Spring Security, Jakarta Security)
+- Use OAuth2/OpenID Connect
+- Remove manual session management
+- Make application stateless for cloud deployment
 
 ### 10. Hibernate-Specific Configuration
 **Files:**
 - `src/main/resources/META-INF/persistence.xml`
+- `src/main/webapp/WEB-INF/resources.xml` - TomEE datasource config
 
 **Violations:**
 - `org.hibernate.ejb.HibernatePersistence` provider
 - Hibernate-specific properties: `hibernate.dialect`, `hibernate.hbm2ddl.auto`
-- Hibernate cache configuration
-- WebSphere-specific JTA platform
+- `hibernate.cache.use_second_level_cache` configuration
+- Vendor-specific JTA platform: `org.hibernate.service.jta.platform.internal.SunOneJtaPlatform`
+- MySQL-specific dialect hardcoded
+- Database credentials in resources.xml (Password = boatfuel123)
+- JtaManaged datasource in application WAR
 
 **Modernization:**
 - Use standard JPA provider configuration
-- Externalize database-specific settings
+- Externalize database-specific settings to environment variables
 - Use standard JPA properties
 - Remove vendor-specific transaction platform
+- Use Kubernetes secrets for database credentials
+- Configure datasource at server level, not in WAR
 
 ### 11. Environment-Specific Configuration in Code
 **Files:**
@@ -204,19 +227,29 @@ This application intentionally includes the following violations that Konveyor s
 
 ### 12. Security Anti-Patterns
 **Files:**
-- `src/main/webapp/WEB-INF/web.xml`
-- `src/main/java/com/boatfuel/util/FileSystemHelper.java`
+- `src/main/webapp/WEB-INF/web.xml` - Security constraints and auth config
+- `src/main/webapp/WEB-INF/resources.xml` - Database password
+- `$TOMEE_HOME/conf/tomcat-users.xml` - User credentials (external)
 
 **Violations:**
-- Old form-based authentication in web.xml
-- `<security-constraint>` instead of annotations
-- Hardcoded password in default config file
+- HTTP Basic Authentication (legacy, no proper logout support)
+- `<security-constraint>` and `<auth-constraint>` in web.xml instead of annotations
+- `<login-config>` with BASIC auth method
+- Database password in resources.xml: `Password = boatfuel123`
+- User credentials in tomcat-users.xml (cleartext passwords)
+- `request.getRemoteUser()` for authentication state
+- No password encryption or hashing
+- No HTTPS enforcement
+- No CSRF protection
 
 **Modernization:**
-- Use Java EE Security API or Spring Security
-- Use OAuth2/OpenID Connect
-- Externalize credentials
-- Use secret management (Vault, Kubernetes secrets)
+- Use Jakarta EE Security API or Spring Security
+- Use OAuth2/OpenID Connect (Keycloak, Auth0)
+- Externalize credentials to Kubernetes secrets
+- Use vault or secret management system
+- Implement form-based or token-based authentication
+- Enforce HTTPS
+- Add CSRF protection
 
 ## Running Konveyor Analysis
 
@@ -254,14 +287,20 @@ kantra analyze \
 
 Konveyor should detect and report:
 
-1. **70+ EJB 2.x migration issues**
-2. **20+ Hibernate proprietary API usages**
-3. **15+ hardcoded JNDI lookup violations**
-4. **10+ file system dependency issues**
-5. **5+ vendor-specific API usages**
-6. **Log4j 1.x security vulnerabilities**
-7. **Servlet 2.5 migration needs**
-8. **Configuration management anti-patterns**
+1. **Manual JNDI lookup violations** - InitialContext().lookup() in servlets
+2. **EJB 2.x legacy interfaces** - Home/Remote interfaces in codebase
+3. **20+ Hibernate proprietary API usages** - @Cache, @Type, @GenericGenerator
+4. **10+ hardcoded configuration issues** - Paths in web.xml, credentials in XML
+5. **10+ file system dependency issues** - Hardcoded paths, file I/O operations
+6. **5+ vendor-specific API usages** - IIOP, WebSphere JTA platform
+7. **Log4j 1.x security vulnerabilities** - CVE-2019-17571, CVE-2020-9488
+8. **Servlet 2.5 migration needs** - web.xml configuration, no annotations
+9. **HTML generation in servlets** - PrintWriter with HTML strings
+10. **Manual session management** - HttpSession getAttribute/setAttribute
+11. **HTTP Basic Auth limitations** - No proper logout, cleartext passwords
+12. **Missing input validation** - Manual parameter extraction without framework
+13. **Database credentials in WAR** - resources.xml with passwords
+14. **Mixed JDBC and JPA** - Direct SQL alongside EntityManager
 
 ## Modernization Path
 
