@@ -1,68 +1,55 @@
 package com.boatfuel.entity;
 
-import org.hibernate.annotations.Index;
-import org.hibernate.annotations.Type;
-import javax.persistence.*;
-import java.io.Serializable;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * FuelUp entity with legacy Hibernate annotations
- * Konveyor violations: Hibernate-specific annotations, old @Index usage
+ * FuelUp entity using Quarkus Hibernate ORM with Panache
  */
 @Entity
-@Table(name = "FUEL_UPS")
-@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
-public class FuelUp implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "FUEL_UP_ID")
-    private Long id;
+@Table(name = "FUEL_UPS", indexes = {
+    @Index(name = "IDX_FUEL_DATE", columnList = "FUEL_DATE")
+})
+public class FuelUp extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "USER_ID", nullable = false)
-    private User user;
+    public User user;
 
-    @Temporal(TemporalType.DATE)
     @Column(name = "FUEL_DATE", nullable = false)
-    @Index(name = "IDX_FUEL_DATE") // Old Hibernate @Index (deprecated)
-    private Date date;
+    public LocalDate date;
 
     @Column(name = "GALLONS", precision = 10, scale = 2, nullable = false)
-    private BigDecimal gallons;
+    public BigDecimal gallons;
 
     @Column(name = "PRICE_PER_GALLON", precision = 10, scale = 2, nullable = false)
-    private BigDecimal pricePerGallon;
+    public BigDecimal pricePerGallon;
 
     @Column(name = "TOTAL_COST", precision = 10, scale = 2)
-    private BigDecimal totalCost;
+    public BigDecimal totalCost;
 
     @Column(name = "ENGINE_HOURS", precision = 10, scale = 1)
-    private BigDecimal engineHours;
+    public BigDecimal engineHours;
 
     @Column(name = "LOCATION", length = 500)
-    @Type(type = "text") // Hibernate-specific type
-    private String location;
+    public String location;
 
     @Column(name = "NOTES", length = 2000)
-    @org.hibernate.annotations.Type(type = "text") // Hibernate-specific
-    private String notes;
+    public String notes;
 
-    @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "CREATED_AT")
-    @org.hibernate.annotations.CreationTimestamp
-    private Date createdAt;
+    public LocalDateTime createdAt;
 
     // Default constructor
     public FuelUp() {
     }
 
     // Constructor
-    public FuelUp(User user, Date date, BigDecimal gallons, BigDecimal pricePerGallon) {
+    public FuelUp(User user, LocalDate date, BigDecimal gallons, BigDecimal pricePerGallon) {
         this.user = user;
         this.date = date;
         this.gallons = gallons;
@@ -70,92 +57,35 @@ public class FuelUp implements Serializable {
         this.totalCost = gallons.multiply(pricePerGallon);
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public Date getDate() {
-        return date;
-    }
-
-    public void setDate(Date date) {
-        this.date = date;
-    }
-
-    public BigDecimal getGallons() {
-        return gallons;
-    }
-
-    public void setGallons(BigDecimal gallons) {
-        this.gallons = gallons;
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
         calculateTotalCost();
     }
 
-    public BigDecimal getPricePerGallon() {
-        return pricePerGallon;
-    }
-
-    public void setPricePerGallon(BigDecimal pricePerGallon) {
-        this.pricePerGallon = pricePerGallon;
+    @PreUpdate
+    public void preUpdate() {
         calculateTotalCost();
-    }
-
-    public BigDecimal getTotalCost() {
-        return totalCost;
-    }
-
-    public void setTotalCost(BigDecimal totalCost) {
-        this.totalCost = totalCost;
-    }
-
-    public BigDecimal getEngineHours() {
-        return engineHours;
-    }
-
-    public void setEngineHours(BigDecimal engineHours) {
-        this.engineHours = engineHours;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-
-    public Date getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
     }
 
     private void calculateTotalCost() {
         if (gallons != null && pricePerGallon != null) {
             this.totalCost = gallons.multiply(pricePerGallon);
         }
+    }
+
+    // Static helper methods for Panache queries
+    public static List<FuelUp> findByUser(String userId) {
+        return list("user.userId = ?1 order by date desc", userId);
+    }
+
+    public static List<FuelUp> findByUserBetweenDates(String userId, LocalDate startDate, LocalDate endDate) {
+        return list("user.userId = ?1 and date between ?2 and ?3 order by date desc", userId, startDate, endDate);
+    }
+
+    public static long countByUser(String userId) {
+        return count("user.userId", userId);
     }
 }
