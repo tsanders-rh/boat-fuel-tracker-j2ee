@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: boat-fuel-keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8180
+    ports:
+      - "8180:8180"
+    networks:
+      - boat-fuel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8180/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    image: docker.io/library/mysql:8.0
+    container_name: boat-fuel-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: boatfuel
+      MYSQL_USER: boatfuel
+      MYSQL_PASSWORD: changeme
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - boat-fuel-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.jvm
+    container_name: boat-fuel-app
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/boatfuel
+      QUARKUS_DATASOURCE_USERNAME: boatfuel
+      QUARKUS_DATASOURCE_PASSWORD: changeme
+      QUARKUS_OIDC_AUTH_SERVER_URL: http://keycloak:8180/realms/boat-fuel-tracker
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - boat-fuel-network
+
+volumes:
+  mysql-data:
+
+networks:
+  boat-fuel-network:
+    driver: bridge

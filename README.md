@@ -16,13 +16,21 @@ mvn quarkus:dev
 
 Open your browser to **http://localhost:8080**
 
-### Docker Compose (Full Stack)
+### Podman Compose (Recommended for RHEL/Fedora)
+
+```bash
+podman-compose up -d
+```
+
+See [PODMAN.md](PODMAN.md) for complete Podman guide.
+
+### Docker Compose
 
 ```bash
 docker-compose up -d
 ```
 
-Includes both the application and MySQL database.
+Includes Keycloak, MySQL, and the application.
 
 ### Production Build
 
@@ -237,7 +245,9 @@ curl http://localhost:8080/fuelups/user/user123/statistics
 
 - **Java 17+** ([Download](https://adoptium.net/))
 - **Maven 3.8+** ([Download](https://maven.apache.org/download.cgi))
-- **Docker** (optional, for containerized deployment)
+- **Podman** or **Docker** (optional, for containerized deployment)
+  - Podman: [Installation Guide](PODMAN.md)
+  - Docker: [Get Docker](https://docs.docker.com/get-docker/)
 
 ## 📦 Deployment Options
 
@@ -254,8 +264,19 @@ Features:
 - Dev UI at http://localhost:8080/q/dev
 - H2 in-memory database
 
-### 2. Docker Container
+### 2. Podman/Docker Container
 
+**With Podman:**
+```bash
+# Build
+mvn clean package
+podman build -f Dockerfile.jvm -t boat-fuel-tracker:latest .
+
+# Run
+podman run -p 8080:8080 boat-fuel-tracker:latest
+```
+
+**With Docker:**
 ```bash
 # Build
 mvn clean package
@@ -265,19 +286,33 @@ docker build -f Dockerfile.jvm -t boat-fuel-tracker:latest .
 docker run -p 8080:8080 boat-fuel-tracker:latest
 ```
 
-### 3. Docker Compose
+### 3. Podman Compose (Recommended)
 
-Complete stack with MySQL:
+Complete stack with Keycloak + MySQL:
+
+```bash
+podman-compose up -d
+```
+
+See [PODMAN.md](PODMAN.md) for systemd integration, rootless mode, and OpenShift deployment.
+
+### 4. Docker Compose
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. Kubernetes/OpenShift
+### 5. Kubernetes/OpenShift
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for complete Kubernetes deployment instructions.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Kubernetes deployment.
 
-### 5. Native Image (Ultra-fast startup)
+Or generate from Podman:
+```bash
+podman generate kube boat-fuel-pod > k8s-deployment.yaml
+oc apply -f k8s-deployment.yaml
+```
+
+### 6. Native Image (Ultra-fast startup)
 
 ```bash
 # Build native executable
