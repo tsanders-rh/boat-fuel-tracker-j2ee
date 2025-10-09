@@ -1,6 +1,7 @@
 package com.boatfuel.service;
 
 import com.boatfuel.entity.FuelUp;
+import com.boatfuel.entity.User;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -21,6 +22,17 @@ public class FuelUpService {
     @Transactional
     public FuelUp createFuelUp(FuelUp fuelUp) {
         Log.infof("Creating new fuel-up for user: %s", fuelUp.user.userId);
+
+        // Find or create the user
+        User existingUser = User.findByUserId(fuelUp.user.userId);
+        if (existingUser == null) {
+            // Create new user if doesn't exist
+            fuelUp.user.persist();
+        } else {
+            // Use existing user
+            fuelUp.user = existingUser;
+        }
+
         fuelUp.persist();
         return fuelUp;
     }

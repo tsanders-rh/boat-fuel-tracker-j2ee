@@ -4,10 +4,14 @@ import com.boatfuel.entity.FuelUp;
 import com.boatfuel.service.FuelUpService;
 import com.boatfuel.service.FuelUpStatistics;
 import io.quarkus.logging.Log;
+import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,10 +22,14 @@ import java.util.List;
 @Path("/fuelups")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@RolesAllowed({"user", "admin"})
 public class FuelUpResource {
 
     @Inject
     FuelUpService fuelUpService;
+
+    @Inject
+    SecurityIdentity securityIdentity;
 
     /**
      * Get all fuel-ups for a user
@@ -29,6 +37,13 @@ public class FuelUpResource {
     @GET
     @Path("/user/{userId}")
     public List<FuelUp> getFuelUpsByUser(@PathParam("userId") String userId) {
+        String authenticatedUser = securityIdentity.getPrincipal().getName();
+
+        // Users can only see their own data (unless admin)
+        if (!securityIdentity.hasRole("admin") && !authenticatedUser.equals(userId)) {
+            throw new ForbiddenException("You can only view your own fuel-ups");
+        }
+
         Log.infof("User %s accessed fuel-ups", userId);
         return fuelUpService.getFuelUpsByUser(userId);
     }

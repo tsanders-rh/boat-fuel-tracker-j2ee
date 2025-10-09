@@ -76,6 +76,12 @@
             <artifactId>quarkus-config-yaml</artifactId>
         </dependency>
 
+        <!-- Security - OIDC Authentication -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>io.quarkus</groupId>
