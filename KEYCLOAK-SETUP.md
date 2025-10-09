@@ -2,15 +2,15 @@
 
 ## Quick Start
 
-### 1. Start Keycloak with Docker Compose
+### 1. Start Keycloak with Podman Compose
 
 ```bash
-docker-compose up -d keycloak
+podman-compose up -d keycloak
 ```
 
 Wait for Keycloak to be healthy (~30 seconds):
 ```bash
-docker-compose logs -f keycloak
+podman-compose logs -f keycloak
 # Wait for: "Keycloak 23.0 on JVM (powered by Quarkus) started"
 ```
 
@@ -108,14 +108,14 @@ Repeat Step 5 with:
 
 ## Testing Authentication
 
-### Option 1: Using Docker Compose (Full Stack)
+### Option 1: Using Podman Compose (Full Stack)
 
 ```bash
 # Start all services (Keycloak + MySQL + App)
-docker-compose up -d
+podman-compose up -d
 
 # Check logs
-docker-compose logs -f app
+podman-compose logs -f app
 ```
 
 Access: http://localhost:8080
@@ -194,10 +194,10 @@ curl http://localhost:8180/realms/boat-fuel-tracker/.well-known/openid-configura
 
 ```bash
 # Check logs
-docker-compose logs keycloak
+podman-compose logs keycloak
 
 # Restart
-docker-compose restart keycloak
+podman-compose restart keycloak
 ```
 
 ### "Invalid redirect URI" Error
@@ -217,7 +217,7 @@ Make sure the redirect URIs in Keycloak client settings include:
 # Find process using port 8180
 lsof -i :8180
 
-# Kill it or change Keycloak port in docker-compose.yml
+# Kill it or change Keycloak port in podman-compose.yml
 ```
 
 ---
@@ -268,15 +268,15 @@ Protect against brute force attacks in Keycloak:
 
 ```bash
 # Export realm configuration
-docker exec -it boat-fuel-keycloak /opt/keycloak/bin/kc.sh export \
+podman exec -it boat-fuel-keycloak /opt/keycloak/bin/kc.sh export \
   --dir /tmp/export --realm boat-fuel-tracker
 
 # Import realm configuration
-docker exec -it boat-fuel-keycloak /opt/keycloak/bin/kc.sh import \
+podman exec -it boat-fuel-keycloak /opt/keycloak/bin/kc.sh import \
   --file /tmp/export/boat-fuel-tracker-realm.json
 
 # Create admin user via CLI
-docker exec -it boat-fuel-keycloak /opt/keycloak/bin/kcadm.sh \
+podman exec -it boat-fuel-keycloak /opt/keycloak/bin/kcadm.sh \
   create users -r boat-fuel-tracker \
   -s username=newuser -s enabled=true
 ```
@@ -302,6 +302,6 @@ For manual integration, see: [AUTHENTICATION.md](AUTHENTICATION.md)
 ## Support
 
 If you encounter issues:
-1. Check Keycloak logs: `docker-compose logs keycloak`
-2. Check app logs: `mvn quarkus:dev` or `docker-compose logs app`
+1. Check Keycloak logs: `podman-compose logs keycloak`
+2. Check app logs: `mvn quarkus:dev` or `podman-compose logs app`
 3. Verify Keycloak health: `curl http://localhost:8180/health/ready`
