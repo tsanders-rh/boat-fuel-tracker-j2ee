@@ -43,13 +43,144 @@ java -jar target/quarkus-app/quarkus-run.jar
 
 ## 🏗️ Architecture
 
-This application demonstrates a modern cloud-native architecture:
+This application demonstrates a modern cloud-native microservices architecture with enterprise-grade security.
 
-- **Quarkus 3.17.0** - Supersonic Subatomic Java
-- **Hibernate ORM with Panache** - Simplified persistence
-- **JAX-RS (REST)** - RESTful web services
-- **CDI (Contexts and Dependency Injection)** - Dependency management
-- **Jakarta EE** - Enterprise Java standards
+### Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Runtime** | Quarkus 3.17.0 | Supersonic Subatomic Java framework |
+| **API** | JAX-RS (RESTEasy Reactive) | RESTful web services |
+| **Security** | Keycloak + OIDC | Identity & Access Management |
+| **Business Logic** | CDI (Contexts & Dependency Injection) | Service layer with @ApplicationScoped beans |
+| **Data Access** | Hibernate ORM with Panache | Simplified JPA with active record pattern |
+| **Database** | H2 (dev) / MySQL 8.0 (prod) | Relational data storage |
+| **Build** | Maven 3.8+ | Dependency management & build |
+| **Container** | Docker + Docker Compose | Containerization & orchestration |
+
+### Component Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Browser/Client                       │
+└────────────────────┬────────────────────────────────────────┘
+                     │ HTTP/HTTPS
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Keycloak (Port 8180)                      │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Identity & Access Management (IAM)                  │   │
+│  │  - User authentication (OIDC/OAuth2)                 │   │
+│  │  - Role-based access control                         │   │
+│  │  - Token management (JWT)                            │   │
+│  │  - SSO, MFA, Social login                            │   │
+│  └──────────────────────────────────────────────────────┘   │
+└────────────────────┬────────────────────────────────────────┘
+                     │ JWT Token
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Quarkus Application (Port 8080)                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Presentation Layer (JAX-RS Resources)               │   │
+│  │  ┌────────────────────────────────────────────────┐  │   │
+│  │  │  FuelUpResource                                │  │   │
+│  │  │  - @RolesAllowed("user", "admin")              │  │   │
+│  │  │  - Security context injection                  │  │   │
+│  │  └────────────────────────────────────────────────┘  │   │
+│  └─────────────────┬────────────────────────────────────┘   │
+│                    │                                         │
+│  ┌─────────────────▼────────────────────────────────────┐   │
+│  │  Business Logic Layer (CDI Services)                 │   │
+│  │  ┌────────────────────────────────────────────────┐  │   │
+│  │  │  FuelUpService (@ApplicationScoped)            │  │   │
+│  │  │  - @Transactional methods                      │  │   │
+│  │  │  - Business validation                         │  │   │
+│  │  └────────────────────────────────────────────────┘  │   │
+│  └─────────────────┬────────────────────────────────────┘   │
+│                    │                                         │
+│  ┌─────────────────▼────────────────────────────────────┐   │
+│  │  Data Access Layer (Panache Entities)                │   │
+│  │  ┌────────────────────────────────────────────────┐  │   │
+│  │  │  FuelUp (PanacheEntity)                        │  │   │
+│  │  │  User (PanacheEntityBase)                      │  │   │
+│  │  │  - Built-in CRUD operations                    │  │   │
+│  │  │  - Custom queries                              │  │   │
+│  │  └────────────────────────────────────────────────┘  │   │
+│  └─────────────────┬────────────────────────────────────┘   │
+│                    │ JDBC                                    │
+└────────────────────┼────────────────────────────────────────┘
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  MySQL Database (Port 3306)                  │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Tables:                                             │   │
+│  │  - USERS (user_id, email, roles)                     │   │
+│  │  - FUEL_UPS (id, date, gallons, price, user_id)     │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Dependent Components
+
+#### Required Services
+
+1. **Keycloak 23.0** (Optional - Auth disabled in dev mode)
+   - Port: `8180`
+   - Purpose: Authentication & Authorization
+   - Admin UI: http://localhost:8180
+   - Credentials: `admin` / `admin`
+   - Documentation: [KEYCLOAK-SETUP.md](KEYCLOAK-SETUP.md)
+
+2. **MySQL 8.0** (Production only - H2 used in dev)
+   - Port: `3306`
+   - Database: `boatfuel`
+   - User: `boatfuel` / `changeme`
+   - Managed via Docker Compose
+
+#### Optional Components
+
+3. **H2 Database** (Development - In-memory)
+   - Automatically used in dev mode
+   - No setup required
+   - Data reset on restart
+
+### Security Flow
+
+```
+1. User → Browser → Application
+2. Application → Redirects to Keycloak login
+3. User → Enters credentials → Keycloak
+4. Keycloak → Validates & issues JWT token
+5. Browser → Stores token in session
+6. Browser → API request with token → Application
+7. Application → Validates JWT with Keycloak public key
+8. Application → Checks roles (@RolesAllowed)
+9. Application → Processes request if authorized
+10. Application → Returns response
+```
+
+### Data Flow
+
+```
+1. Client (Browser/API)
+   ↓ HTTP Request (JSON)
+2. JAX-RS Resource Layer
+   ↓ Method call
+3. CDI Service Layer (@Transactional)
+   ↓ Entity operations
+4. Panache Entity (Active Record)
+   ↓ JPA/Hibernate
+5. Database (MySQL/H2)
+```
+
+### Key Design Patterns
+
+- **Active Record Pattern** - Entities have built-in persistence methods
+- **Dependency Injection** - CDI for loose coupling
+- **Repository Pattern** - Static finder methods in Panache entities
+- **DTO Pattern** - FuelUpStatistics for aggregated data
+- **RESTful API** - Resource-oriented endpoints
+- **JWT Authentication** - Stateless security with bearer tokens
 
 ### Project Structure
 
