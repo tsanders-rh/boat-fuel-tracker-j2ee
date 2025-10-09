@@ -6,6 +6,8 @@ This is a **legacy J2EE application** intentionally designed with anti-patterns 
 
 The application provides a web-based interface for tracking boat fuel consumption, including fuel-ups, costs, gallons, and statistics. Users can log in, add fuel-up records, view their fuel history, and see aggregated statistics.
 
+![Boat Fuel Tracker Interface](screenshot.png)
+
 ⚠️ **WARNING**: This code contains intentional bad practices and should NOT be used as a reference for production applications!
 
 ## What is This?
