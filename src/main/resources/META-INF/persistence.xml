@@ -25,10 +25,8 @@
             <property name="hibernate.format_sql" value="true"/>
 
             <!-- Hibernate-specific caching (proprietary) -->
-            <property name="hibernate.cache.use_second_level_cache" value="true"/>
-            <property name="hibernate.cache.use_query_cache" value="true"/>
-            <property name="hibernate.cache.region.factory_class"
-                      value="org.hibernate.cache.ehcache.EhCacheRegionFactory"/>
+            <property name="hibernate.cache.use_second_level_cache" value="false"/>
+            <property name="hibernate.cache.use_query_cache" value="false"/>
 
             <!-- Hibernate-specific schema management -->
             <property name="hibernate.hbm2ddl.auto" value="update"/>
@@ -42,7 +40,7 @@
 
             <!-- Transaction settings -->
             <property name="hibernate.transaction.jta.platform"
-                      value="org.hibernate.service.jta.platform.internal.WebSphereExtendedJtaPlatform"/>
+                      value="org.hibernate.service.jta.platform.internal.SunOneJtaPlatform"/>
 
         </properties>
     </persistence-unit>

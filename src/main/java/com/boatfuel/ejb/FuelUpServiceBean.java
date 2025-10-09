@@ -4,10 +4,9 @@ import com.boatfuel.entity.FuelUp;
 import com.boatfuel.util.JNDILookupHelper;
 import org.apache.log4j.Logger;
 
-import javax.ejb.SessionBean;
-import javax.ejb.SessionContext;
-import javax.naming.InitialContext;
+import javax.ejb.Stateless;
 import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.sql.DataSource;
 import java.math.BigDecimal;
@@ -18,54 +17,35 @@ import java.sql.ResultSet;
 import java.util.List;
 
 /**
- * EJB 2.x Session Bean implementation (anti-pattern)
- * Konveyor violations:
- * - EJB 2.x SessionBean interface (deprecated)
- * - Manual JNDI lookups (hardcoded)
- * - Mixed JPA and JDBC code
- * - Log4j 1.x usage
- * - No dependency injection
+ * EJB 3.0 Stateless Session Bean (using annotations for TomEE compatibility)
+ * Note: Uses local interface instead of remote to avoid serialization issues
  */
-public class FuelUpServiceBean implements SessionBean {
+@Stateless(name = "FuelUpService")
+public class FuelUpServiceBean implements FuelUpService {
 
     private static final Logger logger = Logger.getLogger(FuelUpServiceBean.class);
 
-    private SessionContext sessionContext;
+    @PersistenceContext(unitName = "BoatFuelTrackerPU")
     private EntityManager entityManager;
-
-    /**
-     * EJB 2.x lifecycle method
-     */
-    public void ejbCreate() {
-        logger.info("Creating FuelUpServiceBean");
-        try {
-            // Hardcoded JNDI lookup (anti-pattern)
-            InitialContext ctx = new InitialContext();
-            entityManager = (EntityManager) ctx.lookup("java:comp/env/persistence/EntityManager");
-        } catch (Exception e) {
-            logger.error("Failed to lookup EntityManager", e);
-            throw new RuntimeException("Cannot initialize EJB", e);
-        }
-    }
 
     /**
      * Create fuel-up using JPA
      */
-    public FuelUp createFuelUp(FuelUp fuelUp) throws RemoteException {
+    public FuelUp createFuelUp(FuelUp fuelUp) {
         try {
             logger.info("Creating new fuel-up for user: " + fuelUp.getUser().getUserId());
             entityManager.persist(fuelUp);
             return fuelUp;
         } catch (Exception e) {
             logger.error("Error creating fuel-up", e);
-            throw new RemoteException("Failed to create fuel-up", e);
+            throw new RuntimeException("Failed to create fuel-up", e);
         }
     }
 
     /**
      * Get fuel-ups using JPA
      */
-    public List<FuelUp> getFuelUpsByUser(String userId) throws RemoteException {
+    public List<FuelUp> getFuelUpsByUser(String userId) {
         try {
             logger.debug("Getting fuel-ups for user: " + userId);
             Query query = entityManager.createQuery(
@@ -74,14 +54,14 @@ public class FuelUpServiceBean implements SessionBean {
             return query.getResultList();
         } catch (Exception e) {
             logger.error("Error retrieving fuel-ups", e);
-            throw new RemoteException("Failed to retrieve fuel-ups", e);
+            throw new RuntimeException("Failed to retrieve fuel-ups", e);
         }
     }
 
     /**
      * Delete fuel-up
      */
-    public void deleteFuelUp(Long fuelUpId) throws RemoteException {
+    public void deleteFuelUp(Long fuelUpId) {
         try {
             logger.info("Deleting fuel-up: " + fuelUpId);
             FuelUp fuelUp = entityManager.find(FuelUp.class, fuelUpId);
@@ -90,7 +70,7 @@ public class FuelUpServiceBean implements SessionBean {
             }
         } catch (Exception e) {
             logger.error("Error deleting fuel-up", e);
-            throw new RemoteException("Failed to delete fuel-up", e);
+            throw new RuntimeException("Failed to delete fuel-up", e);
         }
     }
 
@@ -98,7 +78,7 @@ public class FuelUpServiceBean implements SessionBean {
      * Get statistics using direct JDBC (anti-pattern - mixing JPA and JDBC)
      * Konveyor will flag: Direct JDBC usage, hardcoded SQL, datasource lookup
      */
-    public FuelUpStatistics getStatistics(String userId) throws RemoteException {
+    public FuelUpStatistics getStatistics(String userId) {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -129,7 +109,7 @@ public class FuelUpServiceBean implements SessionBean {
 
         } catch (Exception e) {
             logger.error("Error calculating statistics", e);
-            throw new RemoteException("Failed to calculate statistics", e);
+            throw new RuntimeException("Failed to calculate statistics", e);
         } finally {
             // Manual resource cleanup (anti-pattern - should use try-with-resources)
             try {
@@ -140,22 +120,5 @@ public class FuelUpServiceBean implements SessionBean {
                 logger.warn("Error closing JDBC resources", e);
             }
         }
-    }
-
-    // EJB 2.x lifecycle methods
-    public void ejbActivate() throws RemoteException {
-        logger.debug("ejbActivate called");
-    }
-
-    public void ejbPassivate() throws RemoteException {
-        logger.debug("ejbPassivate called");
-    }
-
-    public void ejbRemove() throws RemoteException {
-        logger.info("ejbRemove called");
-    }
-
-    public void setSessionContext(SessionContext sessionContext) throws RemoteException {
-        this.sessionContext = sessionContext;
     }
 }

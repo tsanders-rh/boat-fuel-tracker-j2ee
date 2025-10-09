@@ -35,6 +35,27 @@
             <version>4.3.11.Final</version>
         </dependency>
 
+        <!-- Hibernate EntityManager for JPA support -->
+        <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-entitymanager</artifactId>
+            <version>4.3.11.Final</version>
+        </dependency>
+
+        <!-- Hibernate EhCache for second-level cache -->
+        <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-ehcache</artifactId>
+            <version>4.3.11.Final</version>
+        </dependency>
+
+        <!-- EhCache core dependency -->
+        <dependency>
+            <groupId>net.sf.ehcache</groupId>
+            <artifactId>ehcache-core</artifactId>
+            <version>2.6.11</version>
+        </dependency>
+
         <!-- Old Log4j 1.x (deprecated, security issues) -->
         <dependency>
             <groupId>log4j</groupId>
@@ -50,12 +71,15 @@
         </dependency>
 
         <!-- WebSphere proprietary API (vendor lock-in) -->
+        <!-- Commented out - not available in public Maven repos -->
+        <!--
         <dependency>
             <groupId>com.ibm.websphere</groupId>
             <artifactId>was-public</artifactId>
             <version>8.5.0</version>
             <scope>provided</scope>
         </dependency>
+        -->
 
         <!-- JBoss proprietary API (vendor lock-in) -->
         <dependency>
@@ -64,12 +88,18 @@
             <version>3.2.12.Final</version>
         </dependency>
 
-        <!-- Old servlet API -->
+        <!-- Old servlet API - included in WAR for compatibility -->
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>servlet-api</artifactId>
             <version>2.5</version>
-            <scope>provided</scope>
+        </dependency>
+
+        <!-- RMI-IIOP API for PortableRemoteObject -->
+        <dependency>
+            <groupId>org.glassfish.corba</groupId>
+            <artifactId>glassfish-corba-omgapi</artifactId>
+            <version>4.2.4</version>
         </dependency>
 
         <!-- JDBC driver (should use JPA) -->

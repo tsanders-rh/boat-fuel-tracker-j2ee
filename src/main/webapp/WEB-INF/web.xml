@@ -23,6 +23,27 @@
         <url-pattern>/fuelups</url-pattern>
     </servlet-mapping>
 
+    <servlet>
+        <servlet-name>LogoutServlet</servlet-name>
+        <servlet-class>com.boatfuel.servlet.LogoutServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>LogoutServlet</servlet-name>
+        <url-pattern>/logout</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>IndexServlet</servlet-name>
+        <servlet-class>com.boatfuel.servlet.IndexServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>IndexServlet</servlet-name>
+        <url-pattern>/index</url-pattern>
+    </servlet-mapping>
+
     <!-- Session configuration with timeout -->
     <session-config>
         <session-timeout>30</session-timeout>
@@ -65,7 +86,8 @@
     <security-constraint>
         <web-resource-collection>
             <web-resource-name>Protected Area</web-resource-name>
-            <url-pattern>/fuelups/*</url-pattern>
+            <url-pattern>/fuelups</url-pattern>
+            <url-pattern>/index</url-pattern>
             <http-method>GET</http-method>
             <http-method>POST</http-method>
         </web-resource-collection>
@@ -75,11 +97,8 @@
     </security-constraint>
 
     <login-config>
-        <auth-method>FORM</auth-method>
-        <form-login-config>
-            <form-login-page>/login.jsp</form-login-page>
-            <form-error-page>/loginError.jsp</form-error-page>
-        </form-login-config>
+        <auth-method>BASIC</auth-method>
+        <realm-name>Boat Fuel Tracker</realm-name>
     </login-config>
 
     <security-role>
@@ -92,8 +111,7 @@
 
     <!-- Welcome file list -->
     <welcome-file-list>
-        <welcome-file>index.html</welcome-file>
-        <welcome-file>index.jsp</welcome-file>
+        <welcome-file>index</welcome-file>
     </welcome-file-list>
 
     <!-- Error pages -->

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+  <!-- Map the application's JNDI reference to the global TomEE resource -->
+  <Resource id="jdbc/BoatFuelTrackerDS" type="DataSource">
+    JdbcDriver = com.mysql.jdbc.Driver
+    JdbcUrl = jdbc:mysql://localhost:3306/boatfuel?useSSL=false
+    UserName = boatfuel
+    Password = boatfuel123
+    JtaManaged = true
+  </Resource>
+</resources>
