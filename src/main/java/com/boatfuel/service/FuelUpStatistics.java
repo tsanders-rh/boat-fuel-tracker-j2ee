@@ -1,4 +1,4 @@
-package com.boatfuel.ejb;
+package com.boatfuel.service;
 
 import java.io.Serializable;
 import java.math.BigDecimal;

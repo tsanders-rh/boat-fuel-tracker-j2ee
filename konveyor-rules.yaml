@@ -1,0 +1,610 @@
+---
+# Konveyor Rules for J2EE to Quarkus Migration
+# These rules identify legacy J2EE patterns that need refactoring for Quarkus
+
+- category: mandatory
+  customVariables: []
+  description: Legacy EJB 2.x SessionBean interface detected
+  effort: 5
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - ejb
+  links:
+    - title: "Quarkus CDI Reference"
+      url: https://quarkus.io/guides/cdi-reference
+    - title: "Migrate EJB to CDI"
+      url: https://quarkus.io/guides/migration-guide#ejb
+  message: |
+    Replace EJB 2.x SessionBean with CDI @ApplicationScoped bean.
+    - Remove implements SessionBean
+    - Remove EJB lifecycle methods (ejbCreate, ejbActivate, ejbPassivate, ejbRemove)
+    - Add @ApplicationScoped annotation
+    - Replace manual JNDI lookups with @Inject
+  ruleID: ejb-sessionbean-to-cdi
+  when:
+    java.referenced:
+      location: IMPLEMENTS_TYPE
+      pattern: javax.ejb.SessionBean
+
+- category: mandatory
+  customVariables: []
+  description: EJB 2.x Home interface pattern detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - ejb
+  links:
+    - title: "Quarkus CDI Reference"
+      url: https://quarkus.io/guides/cdi-reference
+  message: |
+    EJB 2.x Home interfaces are not needed in Quarkus.
+    - Remove Home interface classes
+    - Use CDI @Inject instead of Home.create() pattern
+  ruleID: ejb-home-interface
+  when:
+    java.referenced:
+      location: INHERITANCE
+      pattern: javax.ejb.EJBHome
+
+- category: mandatory
+  customVariables: []
+  description: EJB 2.x Remote interface pattern detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - ejb
+  links:
+    - title: "Quarkus CDI Reference"
+      url: https://quarkus.io/guides/cdi-reference
+  message: |
+    EJB 2.x Remote interfaces should be replaced with CDI beans.
+    - Remove Remote interface extension
+    - Remove RemoteException from method signatures
+    - Use standard Java exceptions
+  ruleID: ejb-remote-interface
+  when:
+    java.referenced:
+      location: INHERITANCE
+      pattern: javax.ejb.EJBObject
+
+- category: mandatory
+  customVariables: []
+  description: PortableRemoteObject usage detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - ejb
+  links:
+    - title: "Quarkus CDI Reference"
+      url: https://quarkus.io/guides/cdi-reference
+  message: |
+    PortableRemoteObject.narrow() is EJB 2.x pattern.
+    Replace with CDI injection using @Inject.
+  ruleID: portable-remote-object-narrow
+  when:
+    java.referenced:
+      location: METHOD_CALL
+      pattern: javax.rmi.PortableRemoteObject.narrow*
+
+- category: mandatory
+  customVariables: []
+  description: Manual JNDI lookup detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - jndi
+  links:
+    - title: "Quarkus CDI Dependency Injection"
+      url: https://quarkus.io/guides/cdi-reference
+  message: |
+    Replace manual JNDI lookups with CDI @Inject.
+    - Remove InitialContext creation
+    - Remove ctx.lookup() calls
+    - Use @Inject annotation for dependency injection
+  ruleID: jndi-lookup-to-inject
+  when:
+    java.referenced:
+      location: METHOD_CALL
+      pattern: javax.naming.InitialContext.lookup*
+
+- category: mandatory
+  customVariables: []
+  description: HttpServlet usage detected
+  effort: 5
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - servlet
+  links:
+    - title: "Quarkus REST (JAX-RS) Guide"
+      url: https://quarkus.io/guides/rest
+  message: |
+    Replace HttpServlet with JAX-RS Resource.
+    - Remove extends HttpServlet
+    - Add @Path annotation to class
+    - Replace doGet/doPost with @GET/@POST methods
+    - Use @PathParam, @QueryParam instead of request.getParameter()
+    - Return objects instead of writing to response
+  ruleID: httpservlet-to-jaxrs
+  when:
+    java.referenced:
+      location: INHERITANCE
+      pattern: javax.servlet.http.HttpServlet
+
+- category: mandatory
+  customVariables: []
+  description: Servlet API request/response usage detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - servlet
+  links:
+    - title: "Quarkus REST Guide"
+      url: https://quarkus.io/guides/rest
+  message: |
+    Replace servlet HttpServletRequest/Response with JAX-RS annotations.
+    Use @PathParam, @QueryParam, @HeaderParam, Response object.
+  ruleID: servlet-request-response
+  when:
+    or:
+      - java.referenced:
+          location: VARIABLE_DECLARATION
+          pattern: javax.servlet.http.HttpServletRequest
+      - java.referenced:
+          location: VARIABLE_DECLARATION
+          pattern: javax.servlet.http.HttpServletResponse
+
+- category: mandatory
+  customVariables: []
+  description: Hibernate-specific @Cache annotation detected
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=hibernate
+    - jpa
+  links:
+    - title: "Quarkus Hibernate ORM Guide"
+      url: https://quarkus.io/guides/hibernate-orm
+  message: |
+    Remove Hibernate-specific @Cache annotation.
+    Configure caching in application.properties if needed:
+    quarkus.hibernate-orm.second-level-caching-enabled=true
+  ruleID: hibernate-cache-annotation
+  when:
+    java.referenced:
+      location: ANNOTATION
+      pattern: org.hibernate.annotations.Cache
+
+- category: mandatory
+  customVariables: []
+  description: Hibernate-specific @Type annotation detected
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=hibernate
+    - jpa
+  links:
+    - title: "Quarkus Hibernate ORM Guide"
+      url: https://quarkus.io/guides/hibernate-orm
+  message: |
+    Remove Hibernate-specific @Type annotation.
+    Use standard JPA @Column or Jakarta persistence types.
+  ruleID: hibernate-type-annotation
+  when:
+    java.referenced:
+      location: ANNOTATION
+      pattern: org.hibernate.annotations.Type
+
+- category: mandatory
+  customVariables: []
+  description: Hibernate @GenericGenerator detected
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=hibernate
+    - jpa
+  links:
+    - title: "Quarkus Hibernate ORM with Panache"
+      url: https://quarkus.io/guides/hibernate-orm-panache
+  message: |
+    Replace Hibernate @GenericGenerator with standard JPA generation strategy.
+    Or extend PanacheEntity/PanacheEntityBase which provides ID management.
+  ruleID: hibernate-generic-generator
+  when:
+    java.referenced:
+      location: ANNOTATION
+      pattern: org.hibernate.annotations.GenericGenerator
+
+- category: mandatory
+  customVariables: []
+  description: Hibernate @CreationTimestamp annotation detected
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=hibernate
+    - jpa
+  links:
+    - title: "Quarkus Hibernate ORM Guide"
+      url: https://quarkus.io/guides/hibernate-orm
+  message: |
+    Replace Hibernate @CreationTimestamp with @PrePersist callback.
+    Example: @PrePersist void prePersist() { createdAt = LocalDateTime.now(); }
+  ruleID: hibernate-creation-timestamp
+  when:
+    java.referenced:
+      location: ANNOTATION
+      pattern: org.hibernate.annotations.CreationTimestamp
+
+- category: mandatory
+  customVariables: []
+  description: Old Hibernate @Index annotation detected
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=hibernate
+    - jpa
+  links:
+    - title: "Jakarta Persistence Guide"
+      url: https://jakarta.ee/specifications/persistence/3.0/
+  message: |
+    Replace deprecated Hibernate @Index with standard JPA @Table(indexes=...).
+    Example: @Table(name="...", indexes={@Index(name="idx", columnList="col")})
+  ruleID: hibernate-index-annotation
+  when:
+    java.referenced:
+      location: ANNOTATION
+      pattern: org.hibernate.annotations.Index
+
+- category: mandatory
+  customVariables: []
+  description: javax.persistence package usage detected
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - jpa
+  links:
+    - title: "Jakarta EE Migration"
+      url: https://quarkus.io/guides/migration-guide
+  message: |
+    Replace javax.persistence.* with jakarta.persistence.*.
+    This is part of the Java EE to Jakarta EE migration.
+  ruleID: javax-to-jakarta-persistence
+  when:
+    java.referenced:
+      location: IMPORT
+      pattern: javax.persistence.*
+
+- category: mandatory
+  customVariables: []
+  description: javax.ejb package usage detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - ejb
+  links:
+    - title: "Quarkus CDI Reference"
+      url: https://quarkus.io/guides/cdi-reference
+  message: |
+    Replace javax.ejb.* with jakarta.enterprise.context.* (CDI).
+    Use @ApplicationScoped, @RequestScoped, etc. instead of EJB annotations.
+  ruleID: javax-ejb-package
+  when:
+    java.referenced:
+      location: IMPORT
+      pattern: javax.ejb.*
+
+- category: mandatory
+  customVariables: []
+  description: javax.servlet package usage detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - servlet
+  links:
+    - title: "Quarkus REST Guide"
+      url: https://quarkus.io/guides/rest
+  message: |
+    Replace servlet-based code with JAX-RS.
+    Use jakarta.ws.rs.* annotations for REST endpoints.
+  ruleID: javax-servlet-package
+  when:
+    java.referenced:
+      location: IMPORT
+      pattern: javax.servlet.*
+
+- category: mandatory
+  customVariables: []
+  description: Log4j 1.x usage detected
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=logging
+    - security
+  links:
+    - title: "Quarkus Logging Guide"
+      url: https://quarkus.io/guides/logging
+  message: |
+    Replace Log4j 1.x with Quarkus logging (JBoss Logging).
+    - Remove Logger.getLogger() calls
+    - Use io.quarkus.logging.Log static methods
+    - Or inject io.quarkus.logging.Log
+  ruleID: log4j-to-quarkus-logging
+  when:
+    java.referenced:
+      location: IMPORT
+      pattern: org.apache.log4j.Logger
+
+- category: mandatory
+  customVariables: []
+  description: WebSphere-specific API usage detected
+  effort: 5
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=websphere
+    - vendor-lockin
+  links:
+    - title: "Quarkus Migration Guide"
+      url: https://quarkus.io/guides/migration-guide
+  message: |
+    Remove WebSphere-specific API dependencies.
+    Replace with standard Jakarta EE or Quarkus APIs.
+  ruleID: websphere-vendor-lockin
+  when:
+    java.referenced:
+      location: IMPORT
+      pattern: com.ibm.websphere.*
+
+- category: mandatory
+  customVariables: []
+  description: JBoss-specific API usage detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=jboss
+    - vendor-lockin
+  links:
+    - title: "Quarkus Migration Guide"
+      url: https://quarkus.io/guides/migration-guide
+  message: |
+    Replace JBoss-specific APIs with standard Jakarta EE or Quarkus alternatives.
+  ruleID: jboss-vendor-lockin
+  when:
+    java.referenced:
+      location: IMPORT
+      pattern: org.jboss.vfs.*
+
+- category: optional
+  customVariables: []
+  description: Date class usage detected - consider modern date/time API
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java
+    - modernization
+  links:
+    - title: "Java Time API"
+      url: https://docs.oracle.com/javase/8/docs/api/java/time/package-summary.html
+  message: |
+    Consider replacing java.util.Date with java.time API.
+    Use LocalDate, LocalDateTime, or Instant for better type safety.
+  ruleID: date-to-java-time
+  when:
+    and:
+      - java.referenced:
+          location: IMPORT
+          pattern: java.util.Date
+      - java.referenced:
+          location: ANNOTATION
+          pattern: "(javax|jakarta).persistence.Entity"
+
+- category: mandatory
+  customVariables: []
+  description: web.xml deployment descriptor detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - configuration
+  links:
+    - title: "Quarkus Configuration Guide"
+      url: https://quarkus.io/guides/config-reference
+  message: |
+    Replace web.xml configuration with Quarkus application.properties.
+    - Servlet mappings → JAX-RS @Path annotations
+    - Context parameters → application.properties
+    - Security constraints → Quarkus security configuration
+  ruleID: webxml-to-quarkus-config
+  when:
+    builtin.xml:
+      xpath: /web-app
+      filepaths:
+        - "**/web.xml"
+
+- category: mandatory
+  customVariables: []
+  description: persistence.xml with Hibernate-specific properties detected
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=jpa
+    - configuration
+  links:
+    - title: "Quarkus Hibernate ORM Configuration"
+      url: https://quarkus.io/guides/hibernate-orm#hibernate-configuration-properties
+  message: |
+    Replace persistence.xml with Quarkus application.properties.
+    Hibernate properties map to quarkus.hibernate-orm.* properties.
+  ruleID: persistence-xml-to-quarkus
+  when:
+    builtin.xml:
+      xpath: /persistence/persistence-unit/properties/property[@name[contains(., 'hibernate')]]
+      filepaths:
+        - "**/persistence.xml"
+
+- category: mandatory
+  customVariables: []
+  description: EJB references in web.xml detected
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - ejb
+  links:
+    - title: "Quarkus CDI Reference"
+      url: https://quarkus.io/guides/cdi-reference
+  message: |
+    Remove EJB references from web.xml.
+    Use CDI @Inject instead of JNDI EJB lookups.
+  ruleID: ejb-ref-in-webxml
+  when:
+    builtin.xml:
+      xpath: /web-app/ejb-ref
+      filepaths:
+        - "**/web.xml"
+
+- category: mandatory
+  customVariables: []
+  description: Direct JDBC usage detected in business logic
+  effort: 3
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - jdbc
+  links:
+    - title: "Quarkus Hibernate ORM with Panache"
+      url: https://quarkus.io/guides/hibernate-orm-panache
+  message: |
+    Replace direct JDBC code with JPA/Panache queries.
+    Use entity.persist(), Entity.find(), Entity.list() methods.
+  ruleID: jdbc-to-panache
+  when:
+    and:
+      - java.referenced:
+          location: IMPORT
+          pattern: java.sql.PreparedStatement
+      - java.referenced:
+          location: METHOD_CALL
+          pattern: javax.sql.DataSource.getConnection
+
+- category: mandatory
+  customVariables: []
+  description: Manual resource cleanup in finally block
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java
+    - modernization
+  links:
+    - title: "Try-with-resources"
+      url: https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html
+  message: |
+    Replace manual resource cleanup with try-with-resources statement.
+    This is a Java 7+ best practice.
+  ruleID: manual-resource-cleanup
+  when:
+    and:
+      - java.referenced:
+          location: METHOD_CALL
+          pattern: java.sql.Connection.close
+      - java.referenced:
+          location: METHOD_CALL
+          pattern: java.sql.Statement.close
+
+- category: potential
+  customVariables: []
+  description: Hardcoded configuration values detected
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - configuration
+  links:
+    - title: "Quarkus Configuration"
+      url: https://quarkus.io/guides/config-reference
+  message: |
+    Consider moving hardcoded configuration to application.properties.
+    Use @ConfigProperty for injection.
+  ruleID: hardcoded-jndi-names
+  when:
+    java.referenced:
+      location: LITERAL
+      pattern: "jdbc/*"
+
+- category: optional
+  customVariables: []
+  description: Entity with private fields and getters/setters
+  effort: 2
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=jpa
+    - panache
+  links:
+    - title: "Quarkus Panache Guide"
+      url: https://quarkus.io/guides/hibernate-orm-panache
+  message: |
+    Consider extending PanacheEntity/PanacheEntityBase for simplified entity code.
+    - Make fields public (Panache handles encapsulation)
+    - Remove getters/setters
+    - Get built-in CRUD methods (persist, delete, find, list, etc.)
+  ruleID: entity-to-panache
+  when:
+    and:
+      - java.referenced:
+          location: ANNOTATION
+          pattern: "(javax|jakarta).persistence.Entity"
+      - java.referenced:
+          location: ANNOTATION
+          pattern: "(javax|jakarta).persistence.Id"
+
+- category: information
+  customVariables: []
+  description: Commons DBCP connection pooling detected
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - datasource
+  links:
+    - title: "Quarkus Datasource Configuration"
+      url: https://quarkus.io/guides/datasource
+  message: |
+    Remove Commons DBCP dependency.
+    Quarkus provides built-in connection pooling via Agroal.
+    Configure in application.properties with quarkus.datasource.* properties.
+  ruleID: commons-dbcp-to-agroal
+  when:
+    builtin.xml:
+      xpath: /project/dependencies/dependency[artifactId/text() = 'commons-dbcp']
+      filepaths:
+        - pom.xml
+
+- category: information
+  customVariables: []
+  description: Old MySQL JDBC driver version detected
+  effort: 1
+  labels:
+    - konveyor.io/target=quarkus
+    - konveyor.io/source=java-ee
+    - datasource
+  links:
+    - title: "Quarkus MySQL Guide"
+      url: https://quarkus.io/guides/datasource#mysql
+  message: |
+    Replace old MySQL connector with Quarkus MySQL extension.
+    Add: quarkus-jdbc-mysql dependency
+    Remove: mysql-connector-java dependency
+  ruleID: mysql-connector-upgrade
+  when:
+    builtin.xml:
+      xpath: /project/dependencies/dependency[artifactId/text() = 'mysql-connector-java' and version/text() = '5.1.47']
+      filepaths:
+        - pom.xml

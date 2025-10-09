@@ -1,120 +1,63 @@
 package com.boatfuel.entity;
 
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.Type;
-import javax.persistence.*;
-import java.io.Serializable;
-import java.util.Date;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * User entity with Hibernate-specific annotations (anti-pattern)
- * Konveyor will flag: Proprietary Hibernate annotations, should use standard JPA
+ * User entity using Quarkus Hibernate ORM with Panache
  */
 @Entity
 @Table(name = "USERS")
-@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
-public class User implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public class User extends PanacheEntityBase {
 
     @Id
-    @GeneratedValue(generator = "uuid")
-    @GenericGenerator(name = "uuid", strategy = "uuid2") // Hibernate-specific
     @Column(name = "USER_ID", length = 50)
-    private String userId;
+    public String userId;
 
     @Column(name = "EMAIL", nullable = false, unique = true, length = 255)
-    private String email;
+    public String email;
 
     @Column(name = "DISPLAY_NAME", length = 255)
-    private String displayName;
+    public String displayName;
 
     @Column(name = "PASSWORD_HASH", length = 255)
-    private String passwordHash;
+    public String passwordHash;
 
     @Column(name = "IS_ADMIN")
-    @Type(type = "yes_no") // Hibernate-specific type
-    private Boolean isAdmin;
+    public Boolean isAdmin;
 
-    @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "CREATED_AT")
-    @org.hibernate.annotations.CreationTimestamp // Hibernate-specific
-    private Date createdAt;
+    public LocalDateTime createdAt;
 
-    @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "LAST_LOGIN")
-    private Date lastLogin;
+    public LocalDateTime lastLogin;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<FuelUp> fuelUps;
+    public List<FuelUp> fuelUps;
 
     // Default constructor
     public User() {
     }
 
-    // Getters and Setters
-    public String getUserId() {
-        return userId;
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
+    // Static helper methods for Panache queries
+    public static User findByEmail(String email) {
+        return find("email", email).firstResult();
     }
 
-    public String getEmail() {
-        return email;
+    public static User findByUserId(String userId) {
+        return findById(userId);
     }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public Boolean getIsAdmin() {
-        return isAdmin;
-    }
-
-    public void setIsAdmin(Boolean isAdmin) {
-        this.isAdmin = isAdmin;
-    }
-
-    public Date getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Date getLastLogin() {
-        return lastLogin;
-    }
-
-    public void setLastLogin(Date lastLogin) {
-        this.lastLogin = lastLogin;
-    }
-
-    public List<FuelUp> getFuelUps() {
-        return fuelUps;
-    }
-
-    public void setFuelUps(List<FuelUp> fuelUps) {
-        this.fuelUps = fuelUps;
+    public static List<User> findAdmins() {
+        return list("isAdmin", true);
     }
 }
