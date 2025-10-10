@@ -1,0 +1,592 @@
+---
+# Custom Konveyor Rules for Quarkus Migration - Filling Critical Gaps
+# These rules detect issues not covered by default Konveyor rulesets
+#
+# Usage:
+#   kantra analyze --input /path/to/app \
+#     --output ./konveyor-report \
+#     --rules ./custom-rules/quarkus-custom-rules.yaml \
+#     --target quarkus
+
+name: custom-quarkus-migration
+description: Custom rules for Quarkus migration covering gaps in default rulesets
+labels:
+  - konveyor.io/target=quarkus
+  - custom
+
+rules:
+  #############################################################################
+  # CRITICAL GAP #1: JNDI InitialContext Usage
+  #############################################################################
+
+  - ruleID: custom-quarkus-jndi-00001
+    description: "JNDI InitialContext not supported in Quarkus"
+    effort: 5
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jndi
+    when:
+      java.referenced:
+        location: CONSTRUCTOR_CALL
+        pattern: javax.naming.InitialContext
+    message: |-
+      JNDI InitialContext is not supported in Quarkus.
+
+      This code will fail at runtime with ClassNotFoundException or NoClassDefFoundError.
+
+      **Action Required:**
+      Replace JNDI lookups with CDI injection using @Inject.
+
+      **Example - Before:**
+      ```java
+      Context ctx = new InitialContext();
+      DataSource ds = (DataSource) ctx.lookup("java:comp/env/jdbc/MyDS");
+      ```
+
+      **After:**
+      ```java
+      @Inject
+      DataSource dataSource;
+      ```
+
+      **For EJBs - Before:**
+      ```java
+      Context ctx = new InitialContext();
+      MyService service = (MyService) ctx.lookup("java:global/app/MyService");
+      ```
+
+      **After:**
+      ```java
+      @Inject
+      MyService service;
+      ```
+
+  - ruleID: custom-quarkus-jndi-00002
+    description: "JNDI lookup method calls not supported in Quarkus"
+    effort: 5
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jndi
+    when:
+      java.referenced:
+        location: METHOD_CALL
+        pattern: javax.naming.Context.lookup*
+    message: |-
+      JNDI Context.lookup() is not supported in Quarkus.
+
+      Replace with CDI @Inject or @ConfigProperty for configuration values.
+
+      **For DataSources:**
+      ```java
+      @Inject
+      DataSource dataSource;
+      ```
+
+      **For EJBs/CDI Beans:**
+      ```java
+      @Inject
+      MyService service;
+      ```
+
+      **For configuration values:**
+      ```java
+      @ConfigProperty(name = "my.config.value")
+      String configValue;
+      ```
+
+  - ruleID: custom-quarkus-jndi-00003
+    description: "PortableRemoteObject usage not supported in Quarkus"
+    effort: 7
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - ejb
+      - remote
+    when:
+      java.referenced:
+        pattern: javax.rmi.PortableRemoteObject
+    message: |-
+      PortableRemoteObject and RMI-IIOP are not supported in Quarkus.
+
+      This is typically used for remote EJB lookups. Replace with REST APIs.
+
+      **Convert Remote EJB to REST:**
+      ```java
+      // Before: Remote EJB
+      @Remote
+      @Stateless
+      public class MyServiceBean implements MyService { ... }
+
+      // After: REST Resource
+      @Path("/api/myservice")
+      @ApplicationScoped
+      public class MyServiceResource {
+          @GET
+          @Produces(MediaType.APPLICATION_JSON)
+          public Response getData() { ... }
+      }
+      ```
+
+  #############################################################################
+  # CRITICAL GAP #2: Missing @Transactional
+  #############################################################################
+
+  - ruleID: custom-quarkus-transaction-00001
+    description: "EntityManager write operations may need @Transactional"
+    effort: 3
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jpa
+      - transaction
+    when:
+      or:
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: javax.persistence.EntityManager.persist*
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: javax.persistence.EntityManager.merge*
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: javax.persistence.EntityManager.remove*
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: jakarta.persistence.EntityManager.persist*
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: jakarta.persistence.EntityManager.merge*
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: jakarta.persistence.EntityManager.remove*
+    message: |-
+      EntityManager write operations require an active transaction in Quarkus.
+
+      **IMPORTANT:** Unlike EJB @Stateless beans, CDI @ApplicationScoped beans
+      do NOT provide automatic transaction management.
+
+      **Action Required:**
+      Add @Transactional annotation to methods that modify data.
+
+      **Example:**
+      ```java
+      import jakarta.transaction.Transactional;
+
+      @ApplicationScoped
+      public class FuelUpService {
+
+          @Inject
+          EntityManager em;
+
+          @Transactional  // ← REQUIRED!
+          public FuelUp createFuelUp(FuelUp fuelUp) {
+              em.persist(fuelUp);
+              return fuelUp;
+          }
+
+          @Transactional  // ← REQUIRED!
+          public void deleteFuelUp(Long id) {
+              FuelUp fuelUp = em.find(FuelUp.class, id);
+              em.remove(fuelUp);
+          }
+
+          // Read-only methods don't strictly need @Transactional
+          // but it's safe to add it for consistency
+          public FuelUp findById(Long id) {
+              return em.find(FuelUp.class, id);
+          }
+      }
+      ```
+
+      **Without @Transactional, changes will NOT be committed to the database!**
+
+  #############################################################################
+  # CRITICAL GAP #3: @PersistenceContext in Quarkus
+  #############################################################################
+
+  - ruleID: custom-quarkus-persistence-00001
+    description: "@PersistenceContext should be replaced with @Inject in Quarkus"
+    effort: 1
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jpa
+    when:
+      java.referenced:
+        location: ANNOTATION
+        pattern: javax.persistence.PersistenceContext
+    message: |-
+      @PersistenceContext is supported but not recommended in Quarkus.
+
+      The persistence unit name is ignored. Quarkus auto-configures the
+      EntityManager based on your datasource configuration.
+
+      **Recommended Change:**
+      ```java
+      // Before:
+      @PersistenceContext(unitName = "MyPU")
+      private EntityManager entityManager;
+
+      // After:
+      @Inject
+      EntityManager entityManager;
+      ```
+
+      **Benefits:**
+      - Simpler code
+      - Follows Quarkus conventions
+      - One less dependency on JPA-specific annotations
+
+  - ruleID: custom-quarkus-persistence-00002
+    description: "Jakarta @PersistenceContext should use @Inject in Quarkus"
+    effort: 1
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jpa
+    when:
+      java.referenced:
+        location: ANNOTATION
+        pattern: jakarta.persistence.PersistenceContext
+    message: |-
+      @PersistenceContext works in Quarkus but @Inject is preferred.
+
+      Replace with standard CDI injection:
+      ```java
+      @Inject
+      EntityManager entityManager;
+      ```
+
+  #############################################################################
+  # GAP #4: Log4j 1.x Incompatibility with Quarkus
+  #############################################################################
+
+  - ruleID: custom-quarkus-logging-00001
+    description: "Log4j 1.x not compatible with Quarkus"
+    effort: 3
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - logging
+    when:
+      java.referenced:
+        pattern: org.apache.log4j.Logger
+    message: |-
+      Log4j 1.x is not included in Quarkus and has known security vulnerabilities.
+
+      **Action Required:**
+      Replace with JBoss Logging (recommended) or SLF4J.
+
+      **Option 1 - JBoss Logging (Quarkus default):**
+      ```java
+      // Before:
+      import org.apache.log4j.Logger;
+      private static final Logger logger = Logger.getLogger(MyClass.class);
+      logger.info("Message");
+
+      // After:
+      import org.jboss.logging.Logger;
+      private static final Logger LOG = Logger.getLogger(MyClass.class);
+      LOG.info("Message");
+      LOG.debugf("User %s has %d items", userId, count);
+      ```
+
+      **Option 2 - SLF4J:**
+      ```java
+      import org.slf4j.Logger;
+      import org.slf4j.LoggerFactory;
+      private static final Logger log = LoggerFactory.getLogger(MyClass.class);
+      ```
+
+      **Maven Dependency (for SLF4J option):**
+      ```xml
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-logging-json</artifactId>
+      </dependency>
+      ```
+
+  - ruleID: custom-quarkus-logging-00002
+    description: "Apache Commons Logging should be replaced in Quarkus"
+    effort: 2
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - logging
+    when:
+      java.referenced:
+        pattern: org.apache.commons.logging.Log
+    message: |-
+      Apache Commons Logging is an extra dependency in Quarkus.
+
+      Recommended: Use JBoss Logging (included by default):
+      ```java
+      import org.jboss.logging.Logger;
+      private static final Logger LOG = Logger.getLogger(MyClass.class);
+      ```
+
+  #############################################################################
+  # GAP #5: Mixed JDBC and JPA
+  #############################################################################
+
+  - ruleID: custom-quarkus-jdbc-00001
+    description: "Direct JDBC usage alongside JPA should be refactored"
+    effort: 5
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jpa
+      - jdbc
+    when:
+      java.referenced:
+        location: METHOD_CALL
+        pattern: java.sql.Connection.prepareStatement*
+    message: |-
+      Mixing direct JDBC with JPA is an anti-pattern.
+
+      **Recommendation:**
+      Use JPA/JPQL for all database operations, or consider Hibernate Panache.
+
+      **Option 1 - JPQL with Aggregates:**
+      ```java
+      @ApplicationScoped
+      public class FuelUpService {
+          @Inject
+          EntityManager em;
+
+          public FuelUpStatistics getStatistics(String userId) {
+              String jpql = \"\"\"
+                  SELECT new com.example.FuelUpStatistics(
+                      COUNT(f),
+                      COALESCE(SUM(f.gallons), 0),
+                      COALESCE(AVG(f.pricePerGallon), 0)
+                  )
+                  FROM FuelUp f
+                  WHERE f.user.userId = :userId
+              \"\"\";
+
+              return em.createQuery(jpql, FuelUpStatistics.class)
+                  .setParameter("userId", userId)
+                  .getSingleResult();
+          }
+      }
+      ```
+
+      **Option 2 - Hibernate Panache:**
+      ```java
+      @ApplicationScoped
+      public class FuelUpRepository implements PanacheRepository<FuelUp> {
+          public FuelUpStatistics calculateStats(String userId) {
+              return find("user.userId", userId)
+                  .project(FuelUpStatistics.class)
+                  .firstResult();
+          }
+      }
+      ```
+
+      **Benefits:**
+      - Consistent data access pattern
+      - Better transaction handling
+      - No manual connection management
+      - Type-safe queries
+
+  #############################################################################
+  # GAP #6: Servlet Init Method with JNDI
+  #############################################################################
+
+  - ruleID: custom-quarkus-servlet-00001
+    description: "Servlet init() with JNDI lookup should use @Inject"
+    effort: 3
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - servlet
+      - jndi
+    when:
+      and:
+        - java.referenced:
+            location: INHERITANCE
+            pattern: javax.servlet.http.HttpServlet
+        - java.referenced:
+            location: METHOD_CALL
+            pattern: javax.naming.Context.lookup*
+    message: |-
+      Servlets using JNDI lookups in init() method must be refactored for Quarkus.
+
+      **Option 1 - Use CDI Injection in Servlet:**
+      ```java
+      @WebServlet("/fuelups")
+      public class FuelUpServlet extends HttpServlet {
+
+          @Inject  // ← Inject instead of JNDI lookup
+          FuelUpService fuelUpService;
+
+          // Remove init() method entirely!
+
+          @Override
+          protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
+              // Use fuelUpService directly
+          }
+      }
+      ```
+
+      **Option 2 - Convert to JAX-RS REST API (Recommended):**
+      ```java
+      @Path("/api/fuelups")
+      @ApplicationScoped
+      public class FuelUpResource {
+
+          @Inject
+          FuelUpService fuelUpService;
+
+          @GET
+          @Produces(MediaType.APPLICATION_JSON)
+          public List<FuelUpDTO> getFuelUps(@QueryParam("userId") String userId) {
+              return fuelUpService.getFuelUpsByUser(userId);
+          }
+      }
+      ```
+
+  #############################################################################
+  # GAP #7: Panache Recommendation
+  #############################################################################
+
+  - ruleID: custom-quarkus-panache-00001
+    description: "Consider using Hibernate Panache for simpler JPA"
+    effort: 5
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - jpa
+      - panache
+    when:
+      and:
+        - java.referenced:
+            location: ANNOTATION
+            pattern: javax.persistence.Entity
+        - or:
+          - java.referenced:
+              location: FIELD_DECLARATION
+              pattern: javax.persistence.EntityManager
+          - java.referenced:
+              location: FIELD_DECLARATION
+              pattern: jakarta.persistence.EntityManager
+    message: |-
+      Consider using Hibernate Panache to simplify your JPA code in Quarkus.
+
+      **Benefits:**
+      - No repository boilerplate
+      - Active Record or Repository pattern
+      - Simplified queries
+      - Built-in pagination
+
+      **Example - Active Record Pattern:**
+      ```java
+      @Entity
+      public class FuelUp extends PanacheEntity {  // ← extends PanacheEntity
+          // No need for @Id - provided by PanacheEntity
+
+          @ManyToOne
+          public User user;
+
+          public LocalDate date;
+          public BigDecimal gallons;
+
+          // Static query methods
+          public static List<FuelUp> findByUser(String userId) {
+              return list("user.userId", userId);
+          }
+
+          public static FuelUpStatistics getStatistics(String userId) {
+              return find("user.userId = ?1", userId)
+                  .project(FuelUpStatistics.class)
+                  .firstResult();
+          }
+      }
+
+      // Usage:
+      List<FuelUp> fuelUps = FuelUp.findByUser("user123");
+      fuelUp.persist();  // No EntityManager needed!
+      ```
+
+      **Maven Dependency:**
+      ```xml
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-hibernate-orm-panache</artifactId>
+      </dependency>
+      ```
+
+      **Documentation:** https://quarkus.io/guides/hibernate-orm-panache
+
+  #############################################################################
+  # GAP #8: EJB Home/Remote Interfaces
+  #############################################################################
+
+  - ruleID: custom-quarkus-ejb-00001
+    description: "EJB Home interfaces are obsolete - delete them"
+    effort: 1
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - ejb
+      - legacy
+    when:
+      java.referenced:
+        location: INHERITANCE
+        pattern: javax.ejb.EJBHome
+    message: |-
+      EJB 2.x Home interfaces are completely obsolete and unused.
+
+      **Action: DELETE this file entirely.**
+
+      These interfaces were replaced by EJB 3.0 annotations in 2006.
+      They have no equivalent in Quarkus and are not needed.
+
+  - ruleID: custom-quarkus-ejb-00002
+    description: "EJB Remote interfaces should be converted to REST"
+    effort: 7
+    category: optional
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=quarkus
+      - ejb
+      - legacy
+    when:
+      java.referenced:
+        location: INHERITANCE
+        pattern: javax.ejb.EJBObject
+    message: |-
+      EJB 2.x Remote interfaces (EJBObject) are obsolete.
+
+      **Action: DELETE this file and convert to REST API.**
+
+      Remote EJB access should be replaced with REST endpoints:
+      ```java
+      @Path("/api/service")
+      @ApplicationScoped
+      public class MyServiceResource {
+          @Inject
+          MyService service;
+
+          @GET
+          @Produces(MediaType.APPLICATION_JSON)
+          public Response getData() {
+              return Response.ok(service.getData()).build();
+          }
+      }
+      ```
