@@ -251,6 +251,94 @@ This application intentionally includes the following violations that Konveyor s
 - Enforce HTTPS
 - Add CSRF protection
 
+### 13. Jakarta EE 9+ Namespace Migration
+**Files:**
+- `src/main/java/com/boatfuel/ejb/FuelUpService.java`
+- `src/main/java/com/boatfuel/ejb/FuelUpServiceBean.java`
+- `src/main/java/com/boatfuel/ejb/FuelUpServiceHome.java`
+- `src/main/java/com/boatfuel/ejb/FuelUpServiceRemote.java`
+- `src/main/java/com/boatfuel/entity/User.java`
+- `src/main/java/com/boatfuel/entity/FuelUp.java`
+- `src/main/java/com/boatfuel/servlet/FuelUpServlet.java`
+- `src/main/java/com/boatfuel/servlet/IndexServlet.java`
+- `src/main/java/com/boatfuel/servlet/LogoutServlet.java`
+
+**Violations:**
+- 25 instances of `javax.*` package imports (mandatory)
+- `javax.ejb.*` imports (Local, Stateless, etc.)
+- `javax.persistence.*` imports (Entity, Id, Table, etc.)
+- `javax.servlet.*` imports (HttpServlet, HttpServletRequest, etc.)
+- All javax namespace usage must migrate to jakarta namespace
+
+**Examples:**
+- `import javax.ejb.Local;` → `import jakarta.ejb.Local;`
+- `import javax.persistence.Entity;` → `import jakarta.persistence.Entity;`
+- `import javax.servlet.http.HttpServlet;` → `import jakarta.servlet.http.HttpServlet;`
+
+**Modernization:**
+- Replace all `javax.*` imports with `jakarta.*` equivalents
+- Update to Jakarta EE 9+ compatible application server
+- Test for any behavioral changes in Jakarta EE APIs
+- Update IDE and build tool configurations for Jakarta EE
+
+### 14. Jakarta EE Maven Dependencies
+**Files:**
+- `pom.xml`
+
+**Violations:**
+- `javax.javaee-api` artifactId (deprecated)
+- `javax` groupId usage in dependencies
+- Using Java EE 7/8 dependencies instead of Jakarta EE 9+
+
+**Modernization:**
+- Replace `javax` groupId with `jakarta.platform`
+- Replace `javax.javaee-api` with `jakarta.jakartaee-api`
+- Update dependency versions to Jakarta EE 9+ compatible versions
+- Example:
+  ```xml
+  <!-- Old -->
+  <dependency>
+    <groupId>javax</groupId>
+    <artifactId>javaee-api</artifactId>
+    <version>7.0</version>
+  </dependency>
+
+  <!-- New -->
+  <dependency>
+    <groupId>jakarta.platform</groupId>
+    <artifactId>jakarta.jakartaee-api</artifactId>
+    <version>9.1.0</version>
+  </dependency>
+  ```
+
+### 15. Hibernate 6 Migration Issues
+**Files:**
+- `src/main/java/com/boatfuel/entity/User.java`
+- `src/main/java/com/boatfuel/entity/FuelUp.java`
+- `src/main/resources/META-INF/persistence.xml`
+
+**Violations:**
+- String-based `@Type` annotation usage (3 incidents - mandatory)
+- `@Type(type = "string")` - String-based type specification removed in Hibernate 6
+- MySQL dialect moved to separate community module (1 incident - potential)
+- `org.hibernate.dialect.MySQLDialect` - Now in separate hibernate-community-dialects module
+
+**Modernization:**
+- Replace string-based `@Type` annotations with modern type-safe alternatives
+- Use `@JdbcTypeCode` for custom JDBC type mappings
+- Add `hibernate-community-dialects` dependency if using MySQL dialect
+- Update to Hibernate 6.x API patterns
+- Example:
+  ```java
+  // Old (Hibernate 5)
+  @Type(type = "string")
+  private String field;
+
+  // New (Hibernate 6)
+  @JdbcTypeCode(SqlTypes.VARCHAR)
+  private String field;
+  ```
+
 ## Running Konveyor Analysis
 
 ### Prerequisites
@@ -283,20 +371,26 @@ mvn clean package
 
 Konveyor should detect and report:
 
-1. **Manual JNDI lookup violations** - InitialContext().lookup() in servlets
-2. **EJB 2.x legacy interfaces** - Home/Remote interfaces in codebase
-3. **20+ Hibernate proprietary API usages** - @Cache, @Type, @GenericGenerator
-4. **10+ hardcoded configuration issues** - Paths in web.xml, credentials in XML
-5. **10+ file system dependency issues** - Hardcoded paths, file I/O operations
-6. **5+ vendor-specific API usages** - IIOP, WebSphere JTA platform
-7. **Log4j 1.x security vulnerabilities** - CVE-2019-17571, CVE-2020-9488
-8. **Servlet 2.5 migration needs** - web.xml configuration, no annotations
-9. **HTML generation in servlets** - PrintWriter with HTML strings
-10. **Manual session management** - HttpSession getAttribute/setAttribute
-11. **HTTP Basic Auth limitations** - No proper logout, cleartext passwords
-12. **Missing input validation** - Manual parameter extraction without framework
-13. **Database credentials in WAR** - resources.xml with passwords
-14. **Mixed JDBC and JPA** - Direct SQL alongside EntityManager
+1. **25 javax → jakarta namespace violations (mandatory)** - All javax.* imports need migration to jakarta.*
+2. **11 file system dependency issues (mandatory)** - Hardcoded paths, file I/O operations
+3. **3 Hibernate 6 type annotation issues (mandatory)** - String-based @Type usage removed
+4. **4 Jakarta EE Maven dependency updates (mandatory)** - javax groupId → jakarta.platform groupId
+5. **14 Java Servlet API usages (optional)** - Servlet-based architecture detected
+6. **Manual JNDI lookup violations** - InitialContext().lookup() in servlets
+7. **EJB 2.x legacy interfaces** - Home/Remote interfaces in codebase
+8. **20+ Hibernate proprietary API usages** - @Cache, @Type, @GenericGenerator
+9. **10+ hardcoded configuration issues** - Paths in web.xml, credentials in XML
+10. **5+ vendor-specific API usages** - IIOP, WebSphere JTA platform
+11. **Log4j 1.x security vulnerabilities** - CVE-2019-17571, CVE-2020-9488
+12. **Servlet 2.5 migration needs** - web.xml configuration, no annotations
+13. **HTML generation in servlets** - PrintWriter with HTML strings
+14. **2 manual session management issues** - HttpSession getAttribute/setAttribute
+15. **HTTP Basic Auth limitations** - No proper logout, cleartext passwords
+16. **Missing input validation** - Manual parameter extraction without framework
+17. **2 localhost JDBC connections (mandatory)** - Hardcoded database URLs
+18. **Database credentials in WAR** - resources.xml with passwords
+19. **Mixed JDBC and JPA** - Direct SQL alongside EntityManager
+20. **Hibernate 6 MySQL dialect migration (potential)** - Community dialects moved to separate module
 
 ![Konveyor Static Report](screenshot2-v2.png)
 
