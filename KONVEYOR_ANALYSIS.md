@@ -298,6 +298,8 @@ Konveyor should detect and report:
 13. **Database credentials in WAR** - resources.xml with passwords
 14. **Mixed JDBC and JPA** - Direct SQL alongside EntityManager
 
+![Konveyor Static Report](screenshot2.png)
+
 ## Modernization Path
 
 ### Target Architecture Options
