@@ -271,22 +271,6 @@ mvn clean package
 
 ### Run Konveyor Analysis
 ```bash
-# Analyze the source code
-kantra analyze \
-  --input /path/to/boat-fuel-tracker \
-  --output ./konveyor-report \
-  --rules https://github.com/konveyor/rulesets \
-  --target quarkus \
-  --source java-ee
-
-# Or analyze for Spring Boot migration
-kantra analyze \
-  --input /path/to/boat-fuel-tracker \
-  --output ./konveyor-report \
-  --rules https://github.com/konveyor/rulesets \
-  --target spring-boot \
-  --source java-ee
-
 % kantra analyze --input ~/Workspace/boat-fuel-tracker-j2ee \
   --output ./konveyor-report \
   --source java-ee \
