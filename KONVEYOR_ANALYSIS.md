@@ -287,7 +287,12 @@ kantra analyze \
   --target spring-boot \
   --source java-ee
 
-> % kantra analyze --input ~/Workspace/boat-fuel-tracker-j2ee --output ./konveyor-report --source java-ee --target quarkus --target cloud-readiness --target jakarta-ee9
+% kantra analyze --input ~/Workspace/boat-fuel-tracker-j2ee \
+  --output ./konveyor-report \
+  --source java-ee \
+  --target quarkus \
+  --target cloud-readiness \
+  --target jakarta-ee9
 ```
 
 ### Expected Violations
