@@ -2,6 +2,143 @@
 
 This document covers critical refactoring areas **not explicitly flagged by Konveyor** that are essential for a successful Quarkus migration.
 
+---
+
+## ⚠️ CRITICAL: Required vs Nice-to-Have
+
+**IMPORTANT:** Not all issues in this guide are blocking. This section clarifies what's **REQUIRED to run on Quarkus** vs **NICE TO HAVE for modernization**.
+
+### ✅ REQUIRED - Application Will Not Run Without These
+
+These changes are **blocking** - the application will fail at runtime if not addressed:
+
+#### 1. **Delete/Replace JNDILookupHelper.java** ⛔ CRITICAL
+**Why:** Quarkus doesn't support JNDI lookups. This code fails at runtime:
+```java
+DataSource ds = JNDILookupHelper.lookupDataSource(); // ❌ FAILS in Quarkus
+```
+**Action:** Delete `JNDILookupHelper.java` entirely, replace all calls with `@Inject`
+
+#### 2. **Fix Servlet EJB Lookups** ⛔ CRITICAL
+**Problem in `FuelUpServlet.java:47-48`:**
+```java
+Context ctx = new InitialContext();
+fuelUpService = (FuelUpService) ctx.lookup("java:global/boat-fuel-tracker/FuelUpService");
+// ❌ FAILS - Quarkus doesn't support JNDI EJB lookups
+```
+**Action:** Replace with CDI injection:
+```java
+@Inject
+FuelUpService fuelUpService;
+```
+
+#### 3. **Add @Transactional to Write Operations** ⛔ CRITICAL
+**Why:** EJB `@Stateless` provided automatic transactions. CDI `@ApplicationScoped` doesn't.
+
+**Without this, database writes won't commit:**
+```java
+@ApplicationScoped
+public class FuelUpServiceBean {
+    @Transactional  // ✅ REQUIRED for createFuelUp, deleteFuelUp
+    public FuelUp createFuelUp(FuelUp fuelUp) {
+        entityManager.persist(fuelUp);
+        return fuelUp;
+    }
+}
+```
+
+#### 4. **Replace @PersistenceContext with @Inject** ⛔ REQUIRED
+```java
+// ❌ Old (Quarkus doesn't use persistence unit names):
+@PersistenceContext(unitName = "BoatFuelTrackerPU")
+private EntityManager entityManager;
+
+// ✅ New (required):
+@Inject
+EntityManager entityManager;
+```
+
+#### 5. **Replace Log4j 1.x** ⛔ REQUIRED
+```java
+// ❌ Old (Log4j 1.x not supported):
+import org.apache.log4j.Logger;
+private static final Logger logger = Logger.getLogger(FuelUpServiceBean.class);
+
+// ✅ New (required):
+import org.jboss.logging.Logger;
+private static final Logger LOG = Logger.getLogger(FuelUpServiceBean.class);
+```
+
+#### 6. **Fix getStatistics() JDBC Code** ⛔ CRITICAL
+**Current code in `FuelUpServiceBean.java:88`:**
+```java
+DataSource ds = JNDILookupHelper.lookupDataSource(); // ❌ FAILS
+conn = ds.getConnection();
+```
+**Action:** Replace with JPA/JPQL (see Issue #5 below)
+
+#### 7. **Delete or Migrate web.xml** ⛔ SEMI-REQUIRED
+Quarkus doesn't use `web.xml`. You must either:
+- Add `@WebServlet` annotations to keep servlets, OR
+- Convert to JAX-RS REST API (recommended)
+
+**Security and config in web.xml must move to `application.properties`**
+
+---
+
+### 🎯 NICE TO HAVE - Improves Quality but Not Blocking
+
+These improvements are **recommended but not required** to run on Quarkus:
+
+- ✨ **DTOs** (Issue #4) - App works without them, but exposing entities directly is risky
+- ✨ **REST API** (Issue #1) - Can keep servlets, but REST is more modern
+- ✨ **Bean Validation** (Issue #10) - Works without, but validation is best practice
+- ✨ **Exception Mappers** (Issue #11) - Works without, returns generic 500 errors
+- ✨ **Pagination** (Issue #7) - Works without, but performance issue with large datasets
+- ✨ **Health Checks** (Issue #17) - Not required, but needed for Kubernetes
+- ✨ **Metrics** (Issue #18) - Not required for functionality
+- ✨ **OpenAPI** (Issue #19) - Not required for functionality
+- ✨ **Tests** (Issue #20) - Not required to run
+- ✨ **Caching** (Issue #21) - Not required for functionality
+- ✨ **Proper Exception Handling** (Issue #11) - App runs without it
+- ✨ **Delete Legacy EJB Interfaces** (Issue #13) - Dead code, but not blocking
+
+---
+
+### 📊 Migration Effort Comparison
+
+**Minimal Migration (Just Get It Running):**
+- **Effort:** 1-2 weeks
+- **What:** Only the 7 REQUIRED items above + Konveyor fixes
+- **Result:** App runs on Quarkus but keeps old patterns (servlets, HTML, etc.)
+
+**Full Modernization (Production-Ready):**
+- **Effort:** 4-5 weeks (as outlined in this guide)
+- **What:** All REQUIRED + NICE TO HAVE items
+- **Result:** Modern cloud-native REST API with best practices
+
+---
+
+### ⚡ Quick Start: Minimum Required Changes
+
+If you just want to **get the app running on Quarkus** with minimal changes:
+
+**Week 1: Critical Fixes**
+1. ✅ Complete all Konveyor fixes (javax→jakarta, Maven deps, Hibernate 6)
+2. ✅ Delete `JNDILookupHelper.java` and `FileSystemHelper.java`
+3. ✅ Replace all JNDI lookups with `@Inject` in servlets and services
+4. ✅ Add `@Transactional` to `createFuelUp()` and `deleteFuelUp()`
+5. ✅ Replace `@PersistenceContext` with `@Inject EntityManager`
+6. ✅ Replace Log4j imports with JBoss Logging
+7. ✅ Rewrite `getStatistics()` to use JPQL instead of JDBC
+8. ✅ Add `@WebServlet` annotations to servlets OR convert to JAX-RS
+
+**Result:** Working Quarkus application (1-2 weeks)
+
+**Then optionally proceed with modernization items for production readiness.**
+
+---
+
 ## Table of Contents
 
 1. [Architecture & Design Patterns](#1-architecture--design-patterns)
