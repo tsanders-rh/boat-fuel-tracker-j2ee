@@ -260,7 +260,7 @@ This application intentionally includes the following violations that Konveyor s
 
 # https://github.com/konveyor/kantra/releases/
 
-Best to run in containerless-mode
+# Best to run in containerless-mode
 # https://github.com/konveyor/kantra/blob/main/docs/containerless.md
 ```
 
