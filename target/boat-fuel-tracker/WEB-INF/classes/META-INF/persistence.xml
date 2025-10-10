@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="http://java.sun.com/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://java.sun.com/xml/ns/persistence
+             http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
+             version="2.0">
+
+    <persistence-unit name="BoatFuelTrackerPU" transaction-type="JTA">
+        <provider>org.hibernate.ejb.HibernatePersistence</provider>
+
+        <!-- Hardcoded JNDI datasource reference (anti-pattern) -->
+        <jta-data-source>jdbc/BoatFuelTrackerDS</jta-data-source>
+
+        <!-- Entity classes -->
+        <class>com.boatfuel.entity.User</class>
+        <class>com.boatfuel.entity.FuelUp</class>
+
+        <exclude-unlisted-classes>false</exclude-unlisted-classes>
+
+        <properties>
+            <!-- Hibernate-specific properties (vendor lock-in) -->
+            <!-- Konveyor will flag: Hibernate-specific configuration -->
+            <property name="hibernate.dialect" value="org.hibernate.dialect.MySQL5InnoDBDialect"/>
+            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.format_sql" value="true"/>
+
+            <!-- Hibernate-specific caching (proprietary) -->
+            <property name="hibernate.cache.use_second_level_cache" value="false"/>
+            <property name="hibernate.cache.use_query_cache" value="false"/>
+
+            <!-- Hibernate-specific schema management -->
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+
+            <!-- Connection pool settings (should use container managed) -->
+            <property name="hibernate.connection.pool_size" value="10"/>
+
+            <!-- Hibernate-specific naming strategy -->
+            <property name="hibernate.ejb.naming_strategy"
+                      value="org.hibernate.cfg.ImprovedNamingStrategy"/>
+
+            <!-- Transaction settings -->
+            <property name="hibernate.transaction.jta.platform"
+                      value="org.hibernate.service.jta.platform.internal.SunOneJtaPlatform"/>
+
+        </properties>
+    </persistence-unit>
+
+</persistence>

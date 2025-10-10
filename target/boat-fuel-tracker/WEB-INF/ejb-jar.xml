@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ejb-jar xmlns="http://java.sun.com/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+         http://java.sun.com/xml/ns/javaee/ejb-jar_3_0.xsd"
+         version="3.0">
+
+    <display-name>Boat Fuel Tracker EJBs</display-name>
+    <description>
+        Legacy EJB 2.x configuration for Konveyor testing
+    </description>
+
+    <!-- EJB 2.x Session Bean configuration (anti-pattern) -->
+    <!-- Konveyor will flag: EJB 2.x descriptors, should use @Stateless annotations -->
+    <enterprise-beans>
+        <session>
+            <ejb-name>FuelUpService</ejb-name>
+            <home>com.boatfuel.ejb.FuelUpServiceHome</home>
+            <remote>com.boatfuel.ejb.FuelUpServiceRemote</remote>
+            <ejb-class>com.boatfuel.ejb.FuelUpServiceBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+
+            <!-- Resource references (old style) -->
+            <resource-ref>
+                <res-ref-name>jdbc/BoatFuelTrackerDS</res-ref-name>
+                <res-type>javax.sql.DataSource</res-type>
+                <res-auth>Container</res-auth>
+                <res-sharing-scope>Shareable</res-sharing-scope>
+            </resource-ref>
+
+            <!-- Persistence context reference (EJB 2.x style) -->
+            <persistence-context-ref>
+                <persistence-context-ref-name>persistence/EntityManager</persistence-context-ref-name>
+                <persistence-unit-name>BoatFuelTrackerPU</persistence-unit-name>
+            </persistence-context-ref>
+        </session>
+    </enterprise-beans>
+
+</ejb-jar>

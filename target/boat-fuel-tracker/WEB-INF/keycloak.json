@@ -1,0 +1,8 @@
+{
+  "realm": "boat-fuel-tracker",
+  "auth-server-url": "http://localhost:8180",
+  "ssl-required": "external",
+  "resource": "boat-fuel-app",
+  "public-client": true,
+  "confidential-port": 0
+}
