@@ -257,6 +257,8 @@ This application intentionally includes the following violations that Konveyor s
 ```bash
 # Install Konveyor CLI
 # Follow instructions at https://github.com/konveyor/analyzer-lsp
+
+# https://github.com/konveyor/kantra/releases/
 ```
 
 ### Build the Application
